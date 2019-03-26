@@ -7,3 +7,8 @@ To use:
  - Run
 
  Clasp may be able to help with the process.
+
+
+## Example Dashboard
+
+![Example Dashboard](docs/dashboard-example.png)
