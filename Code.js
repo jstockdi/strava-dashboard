@@ -193,7 +193,7 @@ function authCallback(request) {
   var service = getService();
   var authorized = service.handleCallback(request);
   if (authorized) {
-    return HtmlService.createHtmlOutput('Success!');
+    return HtmlService.createHtmlOutput('Success!!!');
   } else {
     return HtmlService.createHtmlOutput('Denied');
   }
