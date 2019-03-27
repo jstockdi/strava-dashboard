@@ -16,13 +16,12 @@ function logProps(){
 
 function run(){
 
-  var stravaResults = getStravaResults();
+  var stravaResults = getStravaResults(0);
   
   writeFullResults(stravaResults);
   
   Logger.log('Completed...');
 };
-
 
 function writeFullResults(stravaResults){
   
@@ -39,18 +38,18 @@ function writeFullResults(stravaResults){
   var sheet = getOrCreateSheet(sheetName);
   Logger.log('Found Sheet: ' + sheet.getName());
   sheet.clear();
-    
   
-  [HEADER].concat(fullListArray).forEach(function(row){
-    sheet.appendRow(row);
-  });
+  sheet.appendRow(HEADER)
+
+  var range = sheet.getRange(2, 1, fullListArray.length, 5);
+  range.setValues(fullListArray);
   
 };
 
 
-function getStravaResults() {
+function getStravaResults(startTime) {
   
-  var unixTime = 0;
+  var unixTime = startTime;
   var responseCount = 30;  //default count to force first call
   var lastUnixTime = -1;
   
