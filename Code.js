@@ -7,21 +7,51 @@ var clientSecret = scriptProperties.getProperty("CLIENT_SECRET");
 
 HEADER=['Name','Distance','Moving Time','Average Speed', 'Start Date'];
 
-function logProps(){
-  Logger.log("spreadsheetId: " + spreadsheetId);  
-  Logger.log("sheetName: " + sheetName);  
-  Logger.log("clientId: " + clientId);  
-  Logger.log("clientSecret: " + clientSecret);
-}
 
-function run(){
-
-  var stravaResults = getStravaResults(0);
+function doGet(e){
+  
+  var code = e.parameter.code;
+  Logger.log("AccessToken: " + code);
+  
+  var access_token = getAPIAccessToken(code);
+  Logger.log('access_token: ' + access_token);
+  
+  var stravaResults = getStravaResults(0, access_token);
   
   writeFullResults(stravaResults);
   
   Logger.log('Completed...');
-};
+  
+  
+  return HtmlService.createHtmlOutput('Success');
+  
+}
+
+// curl -X POST 'https://www.strava.com/oauth/token'
+//  -d 'client_id='
+//  -d 'client_secret='
+//  -d 'grant_type=authorization_code'
+//   -d 'code=<>'
+function getAPIAccessToken(code){
+
+  var response = UrlFetchApp.fetch('https://www.strava.com/oauth/token', {
+    'method' : 'post',
+    'payload' : {
+      'client_id': clientId,
+      'client_secret': clientSecret,
+      'grant_type' : 'authorization_code',
+      'code' : code
+    }
+   });
+  
+  var contentText = response.getContentText();
+  Logger.log('contentText: ' + contentText);
+  
+  var jsonResponse = JSON.parse(contentText);
+  
+  return jsonResponse.access_token;
+  
+}
 
 function writeFullResults(stravaResults){
   
@@ -47,7 +77,7 @@ function writeFullResults(stravaResults){
 };
 
 
-function getStravaResults(startTime) {
+function getStravaResults(startTime, access_token) {
   
   var unixTime = startTime;
   var responseCount = 30;  //default count to force first call
@@ -58,7 +88,7 @@ function getStravaResults(startTime) {
   while(responseCount > 0){
       
     lastUnixTime = unixTime;
-    var activities = getActivities(unixTime);
+    var activities = getActivities(unixTime, access_token);
     responseCount = activities.length;
     
     if(responseCount > 0){
@@ -76,21 +106,17 @@ function getStravaResults(startTime) {
 };
 
 
-function getActivities(start_date){
+function getActivities(start_date, access_token){
   
-  var service = getService();
-  var stravaResults = [];
-  
-  if (!service.hasAccess()) {
-    Logger.log('NO ACCESS');
-    
-  }else{
-    var url = 'https://www.strava.com/api/v3/athlete/activities?per_page=125&after=' + start_date;
+
+    var stravaResults = [];
+
+    var url = 'https://www.strava.com/api/v3/athlete/activities?per_page=125&scope=activity:read_permission&after=' + start_date;
     Logger.log('url: ' + url);
     
     var response = UrlFetchApp.fetch(url, {
       headers: {
-        Authorization: 'Bearer ' + service.getAccessToken()
+        Authorization: 'Bearer ' + access_token
       }
     });
     
@@ -117,7 +143,6 @@ function getActivities(start_date){
         };
       });
     }
-  }
   
   return stravaResults;
   
@@ -137,65 +162,3 @@ function getOrCreateSheet(sheetName) {
   
   return sheet;
 };
-
-
-
-
-/**
- * Configures the service.
- */
-function getService() {
-  var service =  OAuth2.createService('Strava')
-      // Set the endpoint URLs.
-      .setAuthorizationBaseUrl('https://www.strava.com/oauth/authorize')
-      .setTokenUrl('https://www.strava.com/oauth/token')
-
-      // Set the client ID and secret.
-      .setClientId(clientId)
-      .setClientSecret(clientSecret)
-
-      // Set the name of the callback function that should be invoked to complete
-      // the OAuth flow.
-      .setCallbackFunction('authCallback')
-
-      // Set the property store where authorized tokens should be persisted.
-      .setPropertyStore(PropertiesService.getUserProperties())
-      //Include private activities when retrieving activities.
-      .setScope ('view_private');
-  
-   if (service.hasAccess()) {
-    var url = 'https://www.strava.com/api/v3/athlete';
-    
-    Logger.log('Using access token: ' + service.getAccessToken());
-    var response = UrlFetchApp.fetch(url, {
-      headers: {
-        Authorization: 'Bearer ' + service.getAccessToken()
-      }
-    });
-    var result = JSON.parse(response.getContentText());
-    
-  } else {
-    var authorizationUrl = service.getAuthorizationUrl();
-    Logger.log('Load the authorizationUrl: %s',
-        authorizationUrl);
-  }
-
-  return service;
-}
-
-
-
-/**
- * Handles the OAuth callback.
- */
-function authCallback(request) {
-  var service = getService();
-  var authorized = service.handleCallback(request);
-  if (authorized) {
-    return HtmlService.createHtmlOutput('Success!!!');
-  } else {
-    return HtmlService.createHtmlOutput('Denied');
-  }
-}
-
-
